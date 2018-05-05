@@ -1,1 +1,2 @@
-./chain-store/**/*
+chain-store/**/*
+__pycache__
