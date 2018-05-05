@@ -130,7 +130,7 @@ class Block(Hashable):
         block_file_path = self.get_block_filename(block_dir)
 
         if os.path.exists(block_file_path):
-            raise "block file already exists"
+            raise Exception("block file already exists")
 
         with open(block_file_path, 'w') as outfile:
             json.dump(self.serialize(), outfile)

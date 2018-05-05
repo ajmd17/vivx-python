@@ -39,7 +39,6 @@ class Client:
         except Exception as e:
             self.handlers['onfailure'](e)
 
-
     def disconnect(self):
         assert self.is_connected
         assert not self.socket is None
@@ -49,6 +48,16 @@ class Client:
 
         #if self.is_connected:
         #    _thread.start_new_thread(self.periodically_resync_with_peers, ())
+
+    def broadcast_transaction(self, tx):
+        try:
+            self.socket.send(json.dumps({
+                'type': 'pushtx',
+                'tx': tx.serialize()
+            }).encode('utf-8'))
+        except Exception as e:
+            print("Failed to broadcast tx: {}".format(e))
+            raise e
 
     def respond_to_message(self, obj):
         msg_type = obj["type"]
@@ -119,14 +128,23 @@ class Client:
             time.sleep(1)
     
     def sync_metachain(self):
+        print("Loading local metachain blocks...")
+        mc.load_blocks()
+
         print("Syncing metachain (wait 5s...)")
         time.sleep(5)
+
+        print("mc.last_block.block_hash = {}".format(mc.last_block.block_hash))
+
         # load latest copy of the metachain
         self.socket.send(json.dumps({
             'type': 'get_chain_metadata',
             'identifier': str(mc.get_identifier()),
             'last_block_hash': mc.last_block.block_hash
         }).encode('utf-8'))
+
+        # when we get data from the metachain,
+        # we can start to pull other blockchains that are nested within the metachain.
 
     def periodically_resync_with_peers(self):
         while self.is_connected:

@@ -23,6 +23,7 @@ class Blockchain(Identifiable):
         block_dir = self.get_block_dir()
 
         if not os.path.exists(genesis_block.get_block_filename(block_dir)):
+            #print("try save genesis block: {}".format(genesis_block.get_block_filename(block_dir)))
             genesis_block.save(block_dir)
 
     """
@@ -82,10 +83,13 @@ class Blockchain(Identifiable):
            for block_file_path in page:
                 block = self.load_block_file(block_file_path)
 
-                if self.last_block.timestamp >= block.timestamp:
-                    break
+                print("block : {}\n".format(block.serialize()))
 
-                self.add_block(block)
+                if block.block_hash != self.genesis_block.block_hash:
+                    if self.last_block.timestamp >= block.timestamp:
+                        break
+
+                    self.add_block(block)
 
     # load a contract via global identifier
     def load_contract(self, contract_identifier):

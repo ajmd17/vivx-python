@@ -132,10 +132,55 @@ class P2PServer(Frame):
 
         nb.add(log_frame, text='Log')
 
+
+        create_new_transaction_frame = Frame(parent_frame)
+
+        create_new_transaction_label = Label(create_new_transaction_frame, text="Create New Transaction")
+        create_new_transaction_label.grid(row=0, column=0)
+
+        self.create_new_transaction_field = Text(create_new_transaction_frame, height=15)
+        self.create_new_transaction_field.grid(row=1, column=0, sticky=N+E+W+S)
+
+        create_new_transaction_button = Button(create_new_transaction_frame, text="Create", command=self.create_new_transaction)
+        create_new_transaction_button.grid(row=2, column=0)
+
+        nb.add(create_new_transaction_frame, text='Create Transaction')
+
     def _reset_new_transaction_text(self):
         latest = self.blockchains['tx'].latestblock()
         self.create_new_transaction_field.delete(1.0, END)
         self.create_new_transaction_field.insert(END, '{{\n  "blockid": {},\n  "timestamp": "{}",\n  "parent": {},\n  "data": {{\n    "sender": "",\n    "receiver": "",\n    "amt": 0\n  }}\n}}'.format(latest.blockid + 1, datetime.datetime.now(), latest.blockid))
+
+    def create_new_transaction(self):
+        from transaction import Transaction
+        from metachain import metachain as mc
+        # TODO: ability to select the blockchain to push to.
+        text_value = self.create_new_transaction_field.get("1.0", END)
+
+        try:
+            json_tx = {}
+            # adjust timestamp.
+            json_tx['contract'] = '0x0'
+            json_tx['data'] = json.loads(text_value)
+            json_tx['timestamp'] = datetime.datetime.now()
+
+            self.client.broadcast_transaction(Transaction.deserialize(json_tx))
+
+            self.client_status("Broadcasting transaction...")
+
+            self.blockchains['tx'].blocks.append(tx)
+            tx.savelocal(self.blockchains['tx'])
+
+            tkMessageBox.showinfo("Transaction created", "The transaction has been successfully created, and will begin propagating throughout the network.")
+            self._reset_new_transaction_text()
+
+        except AssertionError as e:
+            tkMessageBox.showerror("Validation failed", str(e))
+
+        except ValueError as e:
+            tkMessageBox.showerror("Invalid JSON data", str(e))
+            self._reset_new_transaction_text()
+
 
     def log(self, message):
         self.text_area.insert(END, "{}: {}\n".format(str(datetime.datetime.now()), message))

@@ -102,6 +102,21 @@ class Server:
             _thread.start_new_thread(self.sync_blockchain_for_client, (client_socket, identifier, obj["last_block_hash"]))
             #get_subchain(identifier)
 
+        elif msg_type == "pushtx":
+            if obj["tx"] is None:
+                raise InvalidMessage(obj)
+
+            tx = None
+
+            try:
+                tx = Transaction.deserialize(obj["tx"])
+            except:
+                raise InvalidMessage(obj)
+
+            # TODO: verify transaction before sending it to all other nodes
+
+            print("Got transaction: {}".format(tx.serialize()))
+
         elif msg_type == "broadcast":
             if obj["msg"] is None:
                 raise InvalidMessage(obj)
