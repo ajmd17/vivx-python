@@ -1,5 +1,6 @@
 import time
 import json
+import os
 
 from block_header import BlockHeader
 from transaction_set import TransactionSet
@@ -121,3 +122,15 @@ class Block(Hashable):
           timestamp_hash = self._cache['timestamp_hash']
 
         return self.hash_str(block_header_hash + tx_hash + timestamp_hash + str(self.nonce) + self.prev_block_hash)
+        
+    def get_block_filename(self, block_dir):
+        return '{}/block-{}.json'.format(block_dir, self.timestamp)
+
+    def save(self, block_dir):
+        block_file_path = self.get_block_filename(block_dir)
+
+        if os.path.exists(block_file_path):
+            raise "block file already exists"
+
+        with open(block_file_path, 'w') as outfile:
+            json.dump(self.serialize(), outfile)

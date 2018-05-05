@@ -19,6 +19,12 @@ class ObjectIdentifier:
 
         return ObjectIdentifier(*parts)
 
+    def __eq__(self, other):
+        if isinstance(other, str) or isinstance(other, ObjectIdentifier):
+            return self.__str__() == other
+
+        return False
+
     def __str__(self):
         parts = [
             self.organization,

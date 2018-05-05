@@ -4,6 +4,10 @@ import json
 import time
 from functools import reduce
 
+from object_identifier import ObjectIdentifier
+from metachain import metachain as mc
+from block import Block
+
 class InvalidMessage(Exception):
     def __init__(self, msg):
         self.msg = "Invalid message: {}".format(msg)
@@ -29,6 +33,7 @@ class Client:
 
             _thread.start_new_thread(self.listen_for_server_messages, ())
             _thread.start_new_thread(self.periodically_resync_with_peers, ())
+            _thread.start_new_thread(self.sync_metachain, ())
 
             self.handlers['onconnect']()
         except Exception as e:
@@ -42,9 +47,6 @@ class Client:
         self.socket.close()
         self.is_connected = False
 
-        for bc in [self.tx_chain, self.tx_cnf_chain, self.blk_chain, self.blk_cnf_chain]:
-            bc.remote_diff = 0
-
         #if self.is_connected:
         #    _thread.start_new_thread(self.periodically_resync_with_peers, ())
 
@@ -56,6 +58,20 @@ class Client:
 
         if msg_type == "pong":
             pass
+        elif msg_type == "recvblockpage":
+            print("recvblockpage", obj)
+
+            blockpage = obj["blockpage"]
+
+            assert isinstance(blockpage, list), 'blockpage should be list'
+
+            for block_json in blockpage:
+                # load serialized block object
+                block_obj = Block.deserialize(block_json)
+                assert block_obj.prev_block_hash == mc.last_block.block_hash, "requested block object prev_block_hash ({}) should be equal to the block hash of the previous block in the local chain ({})".format(block_obj.prev_block_hash, mc.last_block.block_hash)
+
+                mc.add_block(block_obj, save=True)
+
         elif msg_type == "updatepeers":
             self._updatepeers(obj["peers"])
 
@@ -98,9 +114,19 @@ class Client:
         while self.is_connected:
             self.socket.send(json.dumps({
                 'type': 'ping'
-            }))
+            }).encode('utf-8'))
 
             time.sleep(1)
+    
+    def sync_metachain(self):
+        print("Syncing metachain (wait 5s...)")
+        time.sleep(5)
+        # load latest copy of the metachain
+        self.socket.send(json.dumps({
+            'type': 'get_chain_metadata',
+            'identifier': str(mc.get_identifier()),
+            'last_block_hash': mc.last_block.block_hash
+        }).encode('utf-8'))
 
     def periodically_resync_with_peers(self):
         while self.is_connected:

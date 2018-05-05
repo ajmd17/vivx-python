@@ -1,3 +1,4 @@
+import os
 from block import Block
 
 genesis_block = Block.deserialize({

@@ -1,1 +1,0 @@
-{"block_header": {"version": "0.1-alpha"}, "timestamp": 1525477058, "prev_block_hash": "00000d2c9b4d799d73068f9e8e63c76865dd435dfc0314f4d968c83d6f6e789d", "nonce": 4070950, "hash": "00000e7f290e0ef32272c6b9a87df64554582ce9fbc3d6191d7d5d51cea187a5", "tx_set": [{"contract": "0x0", "data": {"value": "Block #2"}, "timestamp": 1525477058}]}

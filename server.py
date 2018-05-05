@@ -5,6 +5,9 @@ import time
 import datetime
 
 from client import InvalidMessage
+from object_identifier import ObjectIdentifier
+from blockchain import BlockchainSyncState
+from metachain import get_subchain, metachain
 
 class Server:
     def __init__(self, onstatus):
@@ -24,6 +27,7 @@ class Server:
             self.socket.listen(5)
 
             _thread.start_new_thread(self.listen_for_connections, ())
+            _thread.start_new_thread(self.load_metachain, ())
 
             self.is_running = True
 
@@ -41,6 +45,12 @@ class Server:
         self.peers = []
         
         self.onstatus("Server not running")
+
+    def load_metachain(self):
+        self.onstatus("Loading metachain locally...")
+        metachain.sync_state = BlockchainSyncState.SYNCING
+        metachain.load_blocks()
+        metachain.sync_state = BlockchainSyncState.SYNCED
 
     def add_client(self, client_socket, client_address):
         assert self.is_running
@@ -74,8 +84,24 @@ class Server:
         if msg_type == 'ping':
             client_socket.send(json.dumps({
                 'type': 'pong'
-            }))
-        # TODO: messages here
+            }).encode('utf-8'))
+        elif msg_type == "get_chain_metadata":
+            if obj["identifier"] is None:
+                raise InvalidMessage(obj)
+
+            if obj["last_block_hash"] is None:
+                raise InvalidMessage(obj)
+
+            identifier = None
+
+            try:
+                identifier = ObjectIdentifier.parse(obj["identifier"])
+            except:
+                raise InvalidMessage(obj)
+
+            _thread.start_new_thread(self.sync_blockchain_for_client, (client_socket, identifier, obj["last_block_hash"]))
+            #get_subchain(identifier)
+
         elif msg_type == "broadcast":
             if obj["msg"] is None:
                 raise InvalidMessage(obj)
@@ -107,3 +133,69 @@ class Server:
                 break
 
         self.remove_client(client_socket, client_address)
+
+    def sync_blockchain_for_client(self, client_socket, identifier, last_block_hash=None):
+        # TODO: assert that this node responds to that blockchain.
+        # check if the blockchain exists locally, and verify with other peers.
+        # if it does not exist locally, we have to sync in here, first.
+        self.onstatus("Sync requested for blockchain with identifier {}".format(identifier))
+
+        if identifier == metachain.get_identifier():
+            print("metachain sync requested...")
+
+            assert metachain.sync_state != BlockchainSyncState.UNSYNCED, "metachain sync state should not be UNSYNCED, sync should have started previously"
+
+            if metachain.sync_state == BlockchainSyncState.SYNCING:
+                print("sync is currently in progress. waiting...")
+
+            # poll until it is synced
+            while metachain.sync_state != BlockchainSyncState.SYNCED:
+                print("waiting...")
+                time.sleep(0.5)
+
+            # TODO: ensure sync state is OK.
+
+            # feed each block to the client
+            start_index = 0
+            page_size = 10
+
+            if last_block_hash is not None:
+                start_index = -1
+
+                # find block with hash - TODO: optimize this!
+                counter = 0
+
+                for block_page in metachain.page_block_files(pagesize=page_size):
+                    block_hashes = list(map(lambda block_file_path: metachain.load_block_file(block_file_path).block_hash, block_page))
+                    hash_index = block_hashes.index(last_block_hash)
+
+                    if hash_index is not None:
+                        start_index = counter + hash_index + 1
+                        break
+                    else:
+                        counter += page_size
+
+                if start_index == -1:
+                    # possible fork has occurred, last block hash given by client and metachain should be in sync at this point.
+                    raise "possible fork occurred: last block hash given by client ({}) not found after sync. \
+                           The fork may have occurred from the client side or from the source that the blocks were synced from previously.".format(last_block_hash)
+
+            print("start_index = {}".format(start_index))
+
+            for block_page in metachain.page_block_files(start=start_index // page_size, pagesize=page_size):
+                block_page_start_index = start_index - ((start_index // page_size) * page_size)
+                serialized_blocks = []
+
+                for block in block_page[block_page_start_index:]:
+                    serialized_blocks.append(metachain.load_block_file(block).serialize())
+
+                if len(serialized_blocks) == 0:
+                    print("No blocks to send - client is in sync")
+                    break
+
+                client_socket.send(json.dumps({
+                    'type': 'recvblockpage',
+                    'blockpage': serialized_blocks
+                }).encode('utf-8'))
+
+                time.sleep(2)

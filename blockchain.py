@@ -1,10 +1,16 @@
 import os
 import re
 import json
+from enum import Enum
 
 from object_identifier import ObjectIdentifier
 from block import Block
 from utility_classes import Identifiable
+
+class BlockchainSyncState(Enum):
+    UNSYNCED = 0
+    SYNCED = 1
+    SYNCING = 2
 
 class Blockchain(Identifiable):
     def __init__(self, genesis_block, last_block, metadata):
@@ -12,6 +18,13 @@ class Blockchain(Identifiable):
         self.genesis_block = genesis_block
         self.last_block = last_block
         self.metadata = metadata
+        self.sync_state = BlockchainSyncState.UNSYNCED
+
+        block_dir = self.get_block_dir()
+
+        if not os.path.exists(genesis_block.get_block_filename(block_dir)):
+            genesis_block.save(block_dir)
+
     """
     def add_contract(contract):
         assert isinstance(contract, Contract)
@@ -26,7 +39,9 @@ class Blockchain(Identifiable):
     def get_identifier(self):
         return ObjectIdentifier.parse(self.metadata.get_attr('identifier'))
 
-    def load_blocks(self):
+    def page_block_files(self, start=0, pagesize=10):
+        block_file_paths = []
+
         # attempt to load blocks from the 'chains/<identifier>/blocks' folder
         identifier_str = str(self.get_identifier())
         block_dir = './chain-store/{}/blocks'.format(identifier_str)
@@ -46,20 +61,31 @@ class Blockchain(Identifiable):
                     
             if m is not None:
                 # load json file
-                block_file_path = '{}/{}'.format(block_dir, f)
+                block_file_paths.append('{}/{}'.format(block_dir, f))
 
-                with open(block_file_path) as json_data:
-                    block_json = json.load(json_data)
+        assert start < len(block_file_paths), "invalid start index ({} >= {})".format(start, len(block_file_paths))
 
-                    try:
-                        block = Block.deserialize(block_json)
+        for i in range(start, len(block_file_paths), pagesize):
+            yield block_file_paths[i:i+pagesize]
 
-                        if self.last_block.timestamp >= block.timestamp:
-                            break
+    def load_block_file(self, block_file_path):
+        with open(block_file_path) as json_data:
+            block_json = json.load(json_data)
 
-                        self.add_block(block)
-                    except Exception as e:
-                        print("Failed to load block file {}; this may indicate corruption. You may try deleting the directory and rebuilding the database. The error was:\n\t{}".format(block_file_path, e))
+            try:
+                return Block.deserialize(block_json)
+            except Exception as e:
+                print("Failed to load block file {}; this may indicate corruption. You may try deleting the directory and rebuilding the database. The error was:\n\t{}".format(block_file_path, e))
+
+    def load_blocks(self):
+       for page in self.page_block_files():
+           for block_file_path in page:
+                block = self.load_block_file(block_file_path)
+
+                if self.last_block.timestamp >= block.timestamp:
+                    break
+
+                self.add_block(block)
 
     # load a contract via global identifier
     def load_contract(self, contract_identifier):
@@ -81,8 +107,8 @@ class Blockchain(Identifiable):
 
         if save:
             self.save_block(block)
-    
-    def save_block(self, block):
+
+    def get_block_dir(self):
         identifier_str = str(self.get_identifier())
         block_dir = './chain-store/{}/blocks'.format(identifier_str)
         subdirs = block_dir.split('/')
@@ -94,10 +120,7 @@ class Blockchain(Identifiable):
                 os.makedirs(block_dir)
                 break
 
-        block_file_path = '{}/block-{}.json'.format(block_dir, block.timestamp)
+        return block_dir
 
-        if os.path.exists(block_file_path):
-            raise "block file already exists"
-
-        with open(block_file_path, 'w') as outfile:
-            json.dump(block.serialize(), outfile)
+    def save_block(self, block):
+        block.save(self.get_block_dir())
