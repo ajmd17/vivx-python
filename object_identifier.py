@@ -1,7 +1,9 @@
+from utility_classes import Serializable
+
 # a global representation of a specific object on a blockhain
 # uses the syntax organization.namespace.blockchain.contract.blockhash.txhash
 # not all items are required, only preceding items
-class ObjectIdentifier:
+class ObjectIdentifier(Serializable):
     def __init__(self, organization, namespace, blockchain, contract, blockhash, txhash):
         self.organization = organization
         self.namespace = namespace
@@ -9,6 +11,13 @@ class ObjectIdentifier:
         self.contract = contract
         self.blockhash = blockhash
         self.txhash = txhash
+
+    def serialize(self):
+        return self.__str__()
+
+    @classmethod
+    def deserialize(kls, obj):
+        return kls.parse(obj)
 
     @classmethod
     def parse(kls, identifier):

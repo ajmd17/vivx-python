@@ -74,7 +74,7 @@ class Block(Hashable):
             if recalculated_hash == self.block_hash:
                 return True
         else:
-            print("The following preconditions failed while verifying the block: \n{}".format(list(map(lambda item: "\t * {}".format(item)))))
+            print("The following preconditions failed while verifying the block: \n{}".format(list(map(lambda item: "\t * {}".format(item), errors))))
 
         return False
     
@@ -126,8 +126,11 @@ class Block(Hashable):
     def get_block_filename(self, block_dir):
         return '{}/block-{}.json'.format(block_dir, self.timestamp)
 
-    def save(self, block_dir):
-        block_file_path = self.get_block_filename(block_dir)
+    def save(self, block_dir, filename=None):
+        if filename is not None:
+            block_file_path = '{}/{}'.format(block_dir, filename)
+        else:
+            block_file_path = self.get_block_filename(block_dir)
 
         if os.path.exists(block_file_path):
             raise Exception("block file already exists")

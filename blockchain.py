@@ -22,9 +22,9 @@ class Blockchain(Identifiable):
 
         block_dir = self.get_block_dir()
 
-        if not os.path.exists(genesis_block.get_block_filename(block_dir)):
+        #if not os.path.exists(genesis_block.get_block_filename(block_dir)):
             #print("try save genesis block: {}".format(genesis_block.get_block_filename(block_dir)))
-            genesis_block.save(block_dir)
+        #    genesis_block.save(block_dir)
 
     """
     def add_contract(contract):
@@ -64,6 +64,9 @@ class Blockchain(Identifiable):
                 # load json file
                 block_file_paths.append('{}/{}'.format(block_dir, f))
 
+        if len(block_file_paths) == 0:
+            return
+
         assert start < len(block_file_paths), "invalid start index ({} >= {})".format(start, len(block_file_paths))
 
         for i in range(start, len(block_file_paths), pagesize):
@@ -83,13 +86,12 @@ class Blockchain(Identifiable):
            for block_file_path in page:
                 block = self.load_block_file(block_file_path)
 
-                print("block : {}\n".format(block.serialize()))
+                assert block.block_hash != self.genesis_block.block_hash, "genesis block file found ({}): this should not happen".format(block_file_path)
 
-                if block.block_hash != self.genesis_block.block_hash:
-                    if self.last_block.timestamp >= block.timestamp:
-                        break
+                if self.last_block.timestamp >= block.timestamp:
+                    break
 
-                    self.add_block(block)
+                self.add_block(block)
 
     # load a contract via global identifier
     def load_contract(self, contract_identifier):

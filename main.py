@@ -46,6 +46,7 @@ from block_header import BlockHeader
 from transaction import Transaction
 from transaction_set import TransactionSet
 from genesis import genesis_block
+from object_identifier import ObjectIdentifier
 
 #clusterchain!
 class TransactionSchema:
@@ -59,7 +60,7 @@ new_block = Block(
     block_header=BlockHeader(version='0.1-alpha'),
     timestamp=int(time.time()),
     tx_set=TransactionSet(transactions=[
-        Transaction('0x0', { 'value': 'Block #2' }, int(time.time()))
+        Transaction(ObjectIdentifier.parse('vivx.network.core-metachain.BlockchainEntry'), { 'value': 'Block #2' }, int(time.time()))
     ]),
     prev_block_hash=mc.last_block.block_hash
 )

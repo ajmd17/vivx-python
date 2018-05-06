@@ -5,7 +5,7 @@ import time
 from functools import reduce
 
 from object_identifier import ObjectIdentifier
-from metachain import metachain as mc
+from metachain import metachain as mc, get_subchains
 from block import Block
 
 class InvalidMessage(Exception):
@@ -130,6 +130,8 @@ class Client:
     def sync_metachain(self):
         print("Loading local metachain blocks...")
         mc.load_blocks()
+
+        get_subchains()
 
         print("Syncing metachain (wait 5s...)")
         time.sleep(5)

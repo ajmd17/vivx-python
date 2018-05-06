@@ -8,6 +8,7 @@ from client import InvalidMessage
 from object_identifier import ObjectIdentifier
 from blockchain import BlockchainSyncState
 from metachain import get_subchain, metachain
+from bootstrap import select_node_hub
 
 class Server:
     def __init__(self, onstatus):
@@ -16,6 +17,7 @@ class Server:
         self.socket = None
         self.clients = {}
         self.is_running = False
+        self.node_hub = select_node_hub()
 
     def start(self, address, port):
         assert not self.is_running
@@ -25,6 +27,9 @@ class Server:
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.socket.bind((address, port))
             self.socket.listen(5)
+
+            # have to get this working with public-facing addresses.
+            self.inform_node_hub("http://{}:{}".format(address, port))
 
             _thread.start_new_thread(self.listen_for_connections, ())
             _thread.start_new_thread(self.load_metachain, ())
@@ -45,6 +50,20 @@ class Server:
         self.peers = []
         
         self.onstatus("Server not running")
+
+    def inform_node_hub(self, address):
+        assert self.node_hub is not None, "node hub not set"
+
+        self.node_hub.post_self(address)
+
+        _thread.start_new_thread(self.node_hub_heartbeat, (address,))
+
+    def node_hub_heartbeat(self, address):
+        assert self.node_hub is not None, "node hub not set"
+
+        while self.is_running:
+            self.node_hub.post_heartbeat(address)
+            time.sleep(1)
 
     def load_metachain(self):
         self.onstatus("Loading metachain locally...")
@@ -113,7 +132,10 @@ class Server:
             except:
                 raise InvalidMessage(obj)
 
-            # TODO: verify transaction before sending it to all other nodes
+            # TODO: this could ping the host node with the transaction,
+            # allowing it to be sent to miner nodes to be verified + mined into the chain.
+            # this is just a prototype though.
+            
 
             print("Got transaction: {}".format(tx.serialize()))
 
@@ -190,12 +212,14 @@ class Server:
                     else:
                         counter += page_size
 
-                if start_index == -1:
+                if counter > 0 and start_index == -1:
                     # possible fork has occurred, last block hash given by client and metachain should be in sync at this point.
                     raise "possible fork occurred: last block hash given by client ({}) not found after sync. \
                            The fork may have occurred from the client side or from the source that the blocks were synced from previously.".format(last_block_hash)
 
             print("start_index = {}".format(start_index))
+
+            # TODO: Find a way to cache this data
 
             for block_page in metachain.page_block_files(start=start_index // page_size, pagesize=page_size):
                 block_page_start_index = start_index - ((start_index // page_size) * page_size)

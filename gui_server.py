@@ -97,6 +97,8 @@ class P2PServer(Frame):
         address_label = Label(connect_to_server_frame, text="Address:")
         address_label.grid(row=1, column=0)
 
+        # TODO: hit node hubs, gather online nodes. populate in dropdown or similar
+
         self.connect_address_field = Entry(connect_to_server_frame, width=15, textvariable=self.connect_address_var)
         self.connect_address_field.grid(row=1, column=1)
 

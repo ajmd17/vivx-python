@@ -1,10 +1,11 @@
 import json
 
+from object_identifier import ObjectIdentifier
 from utility_classes import Hashable, Serializable
 
 class Transaction(Hashable, Serializable):
-    def __init__(self, contract_id, data, timestamp):
-        self.contract_id = contract_id
+    def __init__(self, contract_identifier, data, timestamp):
+        self.contract_identifier = contract_identifier
         self.data = data
         self.timestamp = timestamp
         
@@ -14,7 +15,7 @@ class Transaction(Hashable, Serializable):
 
     def serialize(self):
         return {
-            'contract': self.contract_id,
+            'contract': str(self.contract_identifier),
             'data': self.data,
             'timestamp': int(self.timestamp)
         }
@@ -32,10 +33,10 @@ class Transaction(Hashable, Serializable):
         
         assert isinstance(tx['timestamp'], int), 'timestamp should be int'
 
-        return Transaction(contract_id=tx['contract'], data=tx['data'], timestamp=tx['timestamp'])
+        return Transaction(contract_identifier=ObjectIdentifier.parse(tx['contract']), data=tx['data'], timestamp=tx['timestamp'])
 
     def calc_hash(self):
-        tx_str = str(self.contract_id) + json.dumps(self.data) + str(self.timestamp)
+        tx_str = str(self.contract_identifier) + json.dumps(self.data) + str(self.timestamp)
         tx_hash = self.hash_str(tx_str)
 
         return tx_hash
