@@ -5,6 +5,9 @@ class TransactionSet(Hashable, Serializable):
     def __init__(self, transactions):
         self.transactions = transactions
 
+    def add_tx(tx):
+        self.transactions.append(tx)
+
     def serialize(self):
         return list(map(lambda item: item.serialize(), self.transactions))
 

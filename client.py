@@ -49,11 +49,13 @@ class Client:
         #if self.is_connected:
         #    _thread.start_new_thread(self.periodically_resync_with_peers, ())
 
-    def broadcast_transaction(self, tx):
+    def broadcast_transaction(self, tx, blockchain_identifier):
+        print("broadcast: {}".format(tx.serialize()))
         try:
             self.socket.send(json.dumps({
                 'type': 'pushtx',
-                'tx': tx.serialize()
+                'tx': tx.serialize(),
+                'blockchain': str(blockchain_identifier)
             }).encode('utf-8'))
         except Exception as e:
             print("Failed to broadcast tx: {}".format(e))

@@ -10,6 +10,11 @@ NODE_HUBS = [
 # this method is used to select a node hub for the server to connect to
 # this could be region-based to make data transfer faster,
 # and also could be randomized to a degree to protect decentralization
+
+# we need some kind of hub reputation tracker that can be stored on a blockchain.
+# this could prevent malicious actors from running a node custom-coded to not broadcast transactions,
+# for example...
+
 def select_node_hub():
     node_hub = None
 

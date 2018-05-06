@@ -7,8 +7,10 @@ import datetime
 from client import InvalidMessage
 from object_identifier import ObjectIdentifier
 from blockchain import BlockchainSyncState
+from transaction import Transaction
 from metachain import get_subchain, metachain
 from bootstrap import select_node_hub
+from miner import Miner
 
 class Server:
     def __init__(self, onstatus):
@@ -18,6 +20,9 @@ class Server:
         self.clients = {}
         self.is_running = False
         self.node_hub = select_node_hub()
+        self.miners = [
+            Miner(blockchain=metachain)
+        ]
 
     def start(self, address, port):
         assert not self.is_running
@@ -34,11 +39,15 @@ class Server:
             _thread.start_new_thread(self.listen_for_connections, ())
             _thread.start_new_thread(self.load_metachain, ())
 
+            for miner in self.miners:
+                miner.start_mining()
+
             self.is_running = True
 
             self.onstatus("Server is running")
         except Exception as e:
             self.onstatus("Failed to start server; Consider restarting the application. The error message was: {}".format(e))
+            self.is_running = False
 
     def stop(self):
         assert self.is_running
@@ -95,6 +104,7 @@ class Server:
             self.stop()
 
     def respond_to_command(self, client_socket, obj):
+        print("message: {}".format(obj))
         msg_type = obj["type"]
 
         if msg_type is None:
@@ -122,21 +132,28 @@ class Server:
             #get_subchain(identifier)
 
         elif msg_type == "pushtx":
+            print("pushtx")
             if obj["tx"] is None:
+                raise InvalidMessage(obj)
+
+            if obj["blockchain"] is None:
                 raise InvalidMessage(obj)
 
             tx = None
 
             try:
                 tx = Transaction.deserialize(obj["tx"])
-            except:
+            except Exception as e:
+                print("Error deserializing tx: {}".format(e))
                 raise InvalidMessage(obj)
 
             # TODO: this could ping the host node with the transaction,
             # allowing it to be sent to miner nodes to be verified + mined into the chain.
             # this is just a prototype though.
-            
 
+            # TODO get the blockchain object via the passed blockchain parameter, so we can mine the tx.
+            #print("miner = {}".format(self.miners[0]))
+            #self.miners[0].queue_tx(tx)
             print("Got transaction: {}".format(tx.serialize()))
 
         elif msg_type == "broadcast":

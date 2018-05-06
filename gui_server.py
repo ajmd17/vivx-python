@@ -1,5 +1,6 @@
 from tkinter import *
 from tkinter.ttk import *
+from tkinter import messagebox
 import socket
 import _thread
 import json
@@ -8,6 +9,8 @@ import datetime
 
 from client import *
 from server import *
+
+from object_identifier import ObjectIdentifier
 
 class P2PServer(Frame):
     def __init__(self, root):
@@ -149,14 +152,14 @@ class P2PServer(Frame):
         nb.add(create_new_transaction_frame, text='Create Transaction')
 
     def _reset_new_transaction_text(self):
-        latest = self.blockchains['tx'].latestblock()
         self.create_new_transaction_field.delete(1.0, END)
-        self.create_new_transaction_field.insert(END, '{{\n  "blockid": {},\n  "timestamp": "{}",\n  "parent": {},\n  "data": {{\n    "sender": "",\n    "receiver": "",\n    "amt": 0\n  }}\n}}'.format(latest.blockid + 1, datetime.datetime.now(), latest.blockid))
+        self.create_new_transaction_field.insert(END, '{{\n  \n}}')
 
     def create_new_transaction(self):
         from transaction import Transaction
         from metachain import metachain as mc
         # TODO: ability to select the blockchain to push to.
+        blockchain_identifier = ObjectIdentifier.parse('vivx.network.core-metachain')
         text_value = self.create_new_transaction_field.get("1.0", END)
 
         try:
@@ -164,23 +167,19 @@ class P2PServer(Frame):
             # adjust timestamp.
             json_tx['contract'] = '0x0'
             json_tx['data'] = json.loads(text_value)
-            json_tx['timestamp'] = datetime.datetime.now()
-
-            self.client.broadcast_transaction(Transaction.deserialize(json_tx))
+            json_tx['timestamp'] = int(time.time())
 
             self.client_status("Broadcasting transaction...")
+            self.client.broadcast_transaction(Transaction.deserialize(json_tx), blockchain_identifier)
 
-            self.blockchains['tx'].blocks.append(tx)
-            tx.savelocal(self.blockchains['tx'])
-
-            tkMessageBox.showinfo("Transaction created", "The transaction has been successfully created, and will begin propagating throughout the network.")
+            messagebox.showinfo("Transaction created", "The transaction has been successfully created, and will begin propagating throughout the network.")
             self._reset_new_transaction_text()
 
         except AssertionError as e:
-            tkMessageBox.showerror("Validation failed", str(e))
+            messagebox.showerror("Validation failed", str(e))
 
         except ValueError as e:
-            tkMessageBox.showerror("Invalid JSON data", str(e))
+            messagebox.showerror("Invalid JSON data", str(e))
             self._reset_new_transaction_text()
 
 
