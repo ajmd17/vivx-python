@@ -11,6 +11,7 @@ from client import *
 from server import *
 
 from object_identifier import ObjectIdentifier
+from transaction_pool import TransactionPool
 
 class P2PServer(Frame):
     def __init__(self, root):
@@ -30,6 +31,8 @@ class P2PServer(Frame):
         self.server = Server(
             onstatus=self.server_status
         )
+
+        TransactionPool(server=self.server, client=self.client).instance.start()
 
     def _onselfconnect(self):
         self.client_status("Connected to server successfully")
@@ -172,7 +175,7 @@ class P2PServer(Frame):
             self.client_status("Broadcasting transaction...")
             self.client.broadcast_transaction(Transaction.deserialize(json_tx), blockchain_identifier)
 
-            messagebox.showinfo("Transaction created", "The transaction has been successfully created, and will begin propagating throughout the network.")
+            #messagebox.showinfo("Transaction created", "The transaction has been successfully created, and will begin propagating throughout the network.")
             self._reset_new_transaction_text()
 
         except AssertionError as e:

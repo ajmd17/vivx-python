@@ -6,6 +6,8 @@ from functools import reduce
 
 from object_identifier import ObjectIdentifier
 from metachain import metachain as mc, get_subchains
+from transaction import Transaction
+from transaction_pool import TransactionPool
 from block import Block
 
 class InvalidMessage(Exception):
@@ -68,7 +70,7 @@ class Client:
             raise InvalidMessage(obj)
 
         if msg_type == "pong":
-            pass
+            print("pong")
         elif msg_type == "recvblockpage":
             print("recvblockpage", obj)
 
@@ -82,6 +84,14 @@ class Client:
                 assert block_obj.prev_block_hash == mc.last_block.block_hash, "requested block object prev_block_hash ({}) should be equal to the block hash of the previous block in the local chain ({})".format(block_obj.prev_block_hash, mc.last_block.block_hash)
 
                 mc.add_block(block_obj, save=True)
+
+        elif msg_type == "recvtx":
+            print("recvtx")
+            tx = obj["tx"]
+
+            tx_obj = Transaction.deserialize(tx)
+            TransactionPool.queue_tx(tx_obj)
+            print("GOT TX: {}".format(tx))
 
         elif msg_type == "updatepeers":
             self._updatepeers(obj["peers"])

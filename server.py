@@ -8,8 +8,9 @@ from client import InvalidMessage
 from object_identifier import ObjectIdentifier
 from blockchain import BlockchainSyncState
 from transaction import Transaction
+from transaction_pool import TransactionPool
 from metachain import get_subchain, metachain
-from bootstrap import select_node_hub
+from bootstrap import NODE_HUBS, select_node_hub
 from miner import Miner
 
 class Server:
@@ -20,9 +21,10 @@ class Server:
         self.clients = {}
         self.is_running = False
         self.node_hub = select_node_hub()
-        self.miners = [
-            Miner(blockchain=metachain)
-        ]
+        self._tx_queue = []
+        #self.miners = [
+        #    Miner(blockchain=metachain)
+        #]
 
     def start(self, address, port):
         assert not self.is_running
@@ -36,11 +38,12 @@ class Server:
             # have to get this working with public-facing addresses.
             self.inform_node_hub("http://{}:{}".format(address, port))
 
+            #_thread.start_new_thread(self.update_tx_queue, ())
             _thread.start_new_thread(self.listen_for_connections, ())
             _thread.start_new_thread(self.load_metachain, ())
 
-            for miner in self.miners:
-                miner.start_mining()
+            #for miner in self.miners:
+            #    miner.start_mining()
 
             self.is_running = True
 
@@ -59,6 +62,10 @@ class Server:
         self.peers = []
         
         self.onstatus("Server not running")
+
+    def _queue_tx(self, tx):
+        self._tx_queue.append(tx)
+        print("Tx queued to be sent to peers: {}".format(tx.serialize()))
 
     def inform_node_hub(self, address):
         assert self.node_hub is not None, "node hub not set"
@@ -79,6 +86,22 @@ class Server:
         metachain.sync_state = BlockchainSyncState.SYNCING
         metachain.load_blocks()
         metachain.sync_state = BlockchainSyncState.SYNCED
+
+    def update_tx_queue(self):
+        while self.is_running:
+            while len(self._tx_queue) != 0:
+                tx_obj = self._tx_queue[0]
+                tx_serialized = tx_obj.serialize()
+
+                for key, value in self.clients.items():
+                    value.send(json.dumps({
+                        'type': 'recvtx',
+                        'tx': tx_serialized
+                    }).encode('utf-8'))
+
+                self._tx_queue.pop(0)
+
+            time.sleep(0.5)
 
     def add_client(self, client_socket, client_address):
         assert self.is_running
@@ -147,14 +170,31 @@ class Server:
                 print("Error deserializing tx: {}".format(e))
                 raise InvalidMessage(obj)
 
+
+            # lets have all servers connected to a set (maybe 8) other independent servers.
+            # when we broadcast a transaction to all these nodes, they will broadcast it to their connected nodes as well.
+            #for key, value in self.clients.items():
+            #    value.send({
+            #        'type': 'recvtx',
+            #        'tx': tx.serialize()
+            #    })
+                #print(key, value)
+
+            TransactionPool.instance.queue_tx(tx)
+
+            # =====
+
             # TODO: this could ping the host node with the transaction,
             # allowing it to be sent to miner nodes to be verified + mined into the chain.
             # this is just a prototype though.
 
             # TODO get the blockchain object via the passed blockchain parameter, so we can mine the tx.
             #print("miner = {}".format(self.miners[0]))
-            #self.miners[0].queue_tx(tx)
-            print("Got transaction: {}".format(tx.serialize()))
+            #self.miners[0].queue_tx(atx.serialize())
+            #for hub in NODE_HUBS:
+            #    addr, port = self.socket.getsockname()
+                # TODO: make address be the server's publicly accessible address
+            #     hub.posttx(address="http://{}:{}".format(addr, port), tx=tx.serialize())
 
         elif msg_type == "broadcast":
             if obj["msg"] is None:
